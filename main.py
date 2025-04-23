@@ -11,10 +11,10 @@ def conectar_wifi(ssid, senha):
         wifi.connect(ssid, senha)
         while not wifi.isconnected():
             pass
-    print('Conectado! IP:', wifi.ifconfig()[0])
+    print('Conectado!')
 
 #pino = pino usado pro servo
-class servo:
+class Servo:
     def __init__(self, pino):
         self.pwm = PMW (Pin(pin), freq=50) # Frequência de 50Hz se o servo for diferente teq mudar
 
@@ -37,14 +37,15 @@ class Timing:
         try:
             ntptime.settime()
             tempo_local = time.localtime(time() - 3 * 3600)  # Ajuste para UTC-3
-            self.rtc.datetime(tempo_local)
+            self.rtc.datetime(tempo_local[0:3] + (0,) + tempo_local[3:6] + (0,))
+            
             print("Hora ajustada para o horário local:", tempo_local)
 
         except:
             print("Erro ao sincronizar com o servidor NTP.")
     
     def hora_atual(self):
-        return self.rtc.datetime()[4]  # Retorna a hora
+        tempo_local = time.localtime(time.time() - 3 * 3600) # Retorna a hora
     
 class controlar_servo:
     def __init__(self, servo, timing):
@@ -61,6 +62,11 @@ class controlar_servo:
             time.sleep(60)
 
 conectar_wifi("nome_wifi", "senha_wifi")
-servo = servo(x)  # Pino do servo
+
+
+servo = Servo(pino = 1)  # Pino do servo
 relogio = Timing()
 controlar = controlar_servo(servo, relogio)
+
+
+#precisa loopar o codigo e fornecer uma api para receber 2 informações, intervalo (de qnt em qnt tempo) OU os/o horario em que deseja que funcione, se for intervalo é bem mais facil essa parte, e se deseja ligar instanteamente
