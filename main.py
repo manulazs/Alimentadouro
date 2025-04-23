@@ -36,4 +36,31 @@ class Timing:
 
         try:
             ntptime.settime()
-            
+            tempo_local = time.localtime(time() - 3 * 3600)  # Ajuste para UTC-3
+            self.rtc.datetime(tempo_local)
+            print("Hora ajustada para o horário local:", tempo_local)
+
+        except:
+            print("Erro ao sincronizar com o servidor NTP.")
+    
+    def hora_atual(self):
+        return self.rtc.datetime()[4]  # Retorna a hora
+    
+class controlar_servo:
+    def __init__(self, servo, timing):
+        self.servo = servo
+        self.timing = timing
+        self.last_hour = -1  # Inicializa com um valor inválido
+
+    def rodar(self):
+        while True:
+            hora = self.timing.hora_atual()
+            if hora != self.last_hour:
+                self.servo.acionar()
+                self.last_hour = hora
+            time.sleep(60)
+
+conectar_wifi("nome_wifi", "senha_wifi")
+servo = servo(x)  # Pino do servo
+relogio = Timing()
+controlar = controlar_servo(servo, relogio)
