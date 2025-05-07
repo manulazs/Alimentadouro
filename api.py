@@ -1,24 +1,26 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List
+import json
+import os
 
 app = FastAPI()
 
-horarios = []
+FILE = "data.json"
 
-class Horario(BaseModel):
+class Config(BaseModel):
     horarios: List[int]
+    ligar_agora: bool
 
-@app.get("/")
-def home():
-    return {"message": "API para controle de servo motor"}
+def carregadar_dados():
+    if not os.path.exists(FILE):
+        salvar_dados({"horarios": [], "ligar_agora": False})
 
-@app.get("/horarios")
-def get_horarios():
-    return {"horarios": horarios}
+    with open(FILE, "r") as f:
+        return json.load(f)
+    
+def salvar_dados(dados):
+    with open(FILE, "w") as f:
+        json.dump(dados, f)
 
-@app.post("/horarios")
-def set_horarios(horario: Horario):
-    global horarios
-    horarios = horario.horarios
-    return {"message": "Horários atualizados com sucesso", "horarios": horarios}
+@app.get("/config", response_model=Config)

@@ -84,7 +84,6 @@ class controlar_servo:
                 print(f"horario programado {hora} acionando servo")
                 self.servo.acionar()
                 self.last_hour = hora
-
         time.sleep(10)
 
 conectar_wifi("nome_wifi", "senha_wifi")
