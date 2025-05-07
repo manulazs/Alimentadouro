@@ -3,95 +3,87 @@ import time
 import network
 import ntptime
 import urequests as requests
+import json
+
+class Servo:
+    def __init__(self, pino):
+        self.pwm = PWM(Pin(pino), freq=50)
+
+    def set_angle(self, angle):
+        duty = int((angle / 180) * 75) + 40
+        self.pwm.duty(duty)
+
+    def acionar(self):
+        print(">> Servo acionado")
+        self.set_angle(90)
+        time.sleep(1)
+        self.set_angle(0)
+        time.sleep(1)
+
+class Timing:
+    def __init__(self):
+        self.rtc = RTC()
+        try:
+            ntptime.settime()
+            tempo_local = time.localtime(time.time() - 3 * 3600)  # UTC-3
+            self.rtc.datetime(tempo_local[0:3] + (0,) + tempo_local[3:6] + (0,))
+            print("Hora sincronizada:", tempo_local)
+        except:
+            print("Erro ao sincronizar NTP")
+
+    def hora_atual(self):
+        return time.localtime(time.time() - 3 * 3600)[3]  # Só a hora (HH)
+
+class ControlarServo:
+    def __init__(self, servo, timing, url):
+        self.servo = servo
+        self.timing = timing
+        self.last_hour = -1
+        self.url = url
+
+    def rodar(self):
+        while True:
+            try:
+                resposta = requests.get(self.url)
+                if resposta.status_code == 200:
+                    dados = resposta.json()
+                    horarios = dados.get("horarios", [])
+                    ligar_agora = dados.get("ligar_agora", False)
+
+                    hora_atual = self.timing.hora_atual()
+                    print("Hora atual:", hora_atual)
+
+                    if ligar_agora:
+                        print(">> Ação remota solicitada!")
+                        self.servo.acionar()
+                        self.last_hour = hora_atual
+
+                    elif hora_atual in horarios and hora_atual != self.last_hour:
+                        print(">> Ação por horário!")
+                        self.servo.acionar()
+                        self.last_hour = hora_atual
+
+                resposta.close()
+            except Exception as e:
+                print("Erro ao consultar API:", e)
+
+            time.sleep(10)  # Verifica a cada 10 segundos
 
 def conectar_wifi(ssid, senha):
     wifi = network.WLAN(network.STA_IF)
     wifi.active(True)
     if not wifi.isconnected():
-        print("Conectando ao Wi-Fi")
+        print("Conectando ao Wi-Fi...")
         wifi.connect(ssid, senha)
         while not wifi.isconnected():
             pass
-    print('Conectado!')
+    print("Wi-Fi conectado:", wifi.ifconfig())
 
-#pino = pino usado pro servo
-class Servo:
-    def __init__(self, pino):
-        self.pwm = PMW (Pin(pino), freq=50) # Frequência de 50Hz se o servo for diferente teq mudar
-
-    def set_angle(self, angle):
-        # Converte o ângulo para o valor de duty cycle, se ai depende do angle que a gente quer
-        duty = int((angle / 180) * 75) + 40
-        self.pwm.duty(duty)
-
-    def acionar(self):
-        self.set_angle(90)
-        time.sleep(1)
-        self.set_angle(0)
-        time.sleep(1)
-        print("Servo acionado")
-
-class Timing:
-    def __init__(self):
-        self.rtc = RTC()
-
-        try:
-            ntptime.settime()
-            tempo_local = time.localtime(time() - 3 * 3600)  # Ajuste para UTC-3
-            self.rtc.datetime(tempo_local[0:3] + (0,) + tempo_local[3:6] + (0,))
-            
-            print("Hora ajustada para o horário local:", tempo_local)
-
-        except:
-            print("Erro ao sincronizar com o servidor NTP.")
-    
-    def hora_atual(self):
-        tempo_local = time.localtime(time.time() - 3 * 3600)[3] # Retorna apenas a hora
-    
-class controlar_servo:
-    def __init__(self, servo, timing, url_api):
-        self.servo = servo
-        self.timing = timing
-        self.url_api = url_api
-        self.last_hour = -1  # Inicializa com um valor inválido
-
-    def config(self):
-        try:
-            response = requests.get(self.url_api)
-            if response.status_code == 200:
-                return response.json()
-        
-        except:
-            print("Erro ao conectar com a API.")
-
-        return {}            
+conectar_wifi("nomewifi", "senha")
+servo = Servo(pino=1) #pino do servo motor
+tempo = Timing()
 
 
-    def rodar(self):
-        while True:
-            dados = self.config()
-            horarios = dados.get("horarios", [])
-            ligar_agora = dados.get("ligar_agora", False)
-
-            hora = self.timing.hora_atual()
-
-            if ligar_agora:
-                print("acionando servo agora")
-                self.servo.acionar()
-                time.sleep(60)  # Espera 1 minuto para evitar acionamento repetido
-
-            elif hora in horarios and hora != self.last_hour:
-                print(f"horario programado {hora} acionando servo")
-                self.servo.acionar()
-                self.last_hour = hora
-        time.sleep(10)
-
-conectar_wifi("nome_wifi", "senha_wifi")
-
-url_api = "http://api.com/horarios"  # URL da API que fornece os horários
-
-
-servo = Servo(pino = 1)  # Pino do servo
-relogio = Timing()
-controlar = controlar_servo(servo, relogio, url_api)
-controlar.rodar()
+url_api = "url da api" #url da api
+controlador = ControlarServo(servo, tempo, url_api)
+controlador.rodar()
